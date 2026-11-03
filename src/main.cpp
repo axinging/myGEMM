@@ -15,6 +15,7 @@
 
 // Common include
 #include "common.h"
+#include <chrono>
 
 // Global variable with timing results
 profile_t timers[NUM_TIMERS];
@@ -38,6 +39,9 @@ int main(int argc, char* argv[]) {
     for (int c=0; c<=3; c++) {
         #ifndef ENABLE_CUDA
             if (c == 0 || c == 2) { continue; }
+        #endif
+        #ifndef ENABLE_CLBLAS
+            if (c == 1) { continue; }
         #endif
         switch(c) {
             case 0: printf("##    cuBLAS on '%s', peak: %.1lf GFLOPS\n", GPU_NAME, peak); break;
@@ -78,8 +82,10 @@ int main(int argc, char* argv[]) {
         // Run cuBLAS or clBlas first to get the 'golden' reference output
         #ifdef ENABLE_CUDA
             libcublas(A, B, goldC, k, m, n, NUM_TIMERS-1);
-        #else
+        #elif defined(ENABLE_CLBLAS)
             libclblas(A, B, goldC, k, m, n, NUM_TIMERS-1);
+        #else
+            libcpu(A, B, goldC, k, m, n);
         #endif
 
         // Loop over the configurations
@@ -88,6 +94,9 @@ int main(int argc, char* argv[]) {
             // Skip configurations if CUDA is disabled
             #ifndef ENABLE_CUDA
                 if (c == 0 || c == 2) { continue; }
+            #endif
+            #ifndef ENABLE_CLBLAS
+                if (c == 1) { continue; }
             #endif
 
             // Set the output matrix to zero (to erase the results of the previous run)
@@ -109,7 +118,9 @@ int main(int argc, char* argv[]) {
                 #ifdef ENABLE_CUDA
                     case 0: libcublas(A, B, C, k, m, n, c); break;
                 #endif
-                case 1: libclblas(A, B, C, k, m, n, c); break;
+                #ifdef ENABLE_CLBLAS
+                    case 1: libclblas(A, B, C, k, m, n, c); break;
+                #endif
                 #ifdef ENABLE_CUDA
                     case 2: mycublas(A, B, C, k, m, n, c); break;
                 #endif
@@ -149,12 +160,8 @@ int main(int argc, char* argv[]) {
 
 // Timer function: Measure the current time
 double timer(void) {
-    struct timeval Tvalue;
-    struct timezone dummy;
-    gettimeofday(&Tvalue, &dummy);
-    double etime = (double)Tvalue.tv_sec + 1.0e-6*((double)Tvalue.tv_usec);
-    return etime;
-    //return omp_get_wtime();
+    return std::chrono::duration<double>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 // Timer function: Get the execution time
@@ -173,7 +180,7 @@ double gflops(profile_t timer) {
 char* readKernelFile(const char* filename, long* _size) {
 
     // Open the file
-    FILE* file = fopen(filename, "r");
+    FILE* file = fopen(filename, "rb");  // binary: text mode on Windows makes ftell != bytes read
     if (!file) {
         printf("-- Error opening file %s\n", filename);
         exit(1);

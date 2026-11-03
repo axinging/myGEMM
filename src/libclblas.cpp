@@ -16,6 +16,8 @@
 // Common include
 #include "common.h"
 
+#ifdef ENABLE_CLBLAS
+
 // Include OpenCL and clBlas
 #include <clBLAS.h>
 
@@ -90,7 +92,7 @@ void libclblas(float* A, float* B, float* C,
 
     // End the timed loop
     timers[timerID].t += (timer() - startTime) / (double)NUM_RUNS;
-    timers[timerID].kf += ((long)K * (long)M * (long)N * 2) / 1000;
+    timers[timerID].kf += ((long long)K * (long long)M * (long long)N * 2) / 1000;
 
     // Copy the output matrix C back to the CPU memory
     err = clEnqueueReadBuffer(queue, bufC, CL_TRUE, 0, M*N*sizeof(*C), C, 0, NULL, NULL);
@@ -104,5 +106,7 @@ void libclblas(float* A, float* B, float* C,
     clReleaseCommandQueue(queue);
     clReleaseContext(ctx);
 }
+
+#endif // ENABLE_CLBLAS
 
 // =================================================================================================

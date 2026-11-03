@@ -28,11 +28,15 @@ void checkError(cl_int error, int line);
 // =================================================================================================
 
 // Set the locations of the OpenCL kernel files
-#define CL_INCLUDE_FILE "src/settings.h"
-#define CL_KERNEL_FILE "src/kernels.cl"
+// (MYGEMM_ROOT is set by CMake to the source folder; falls back to the working directory)
+#ifndef MYGEMM_ROOT
+    #define MYGEMM_ROOT "."
+#endif
+#define CL_INCLUDE_FILE MYGEMM_ROOT "/src/settings.h"
+#define CL_KERNEL_FILE MYGEMM_ROOT "/src/kernels.cl"
 
 // Determine the location where to output the PTX code
-#define CL_PTX_FILE "bin/myGEMM.cl.ptx"
+#define CL_PTX_FILE MYGEMM_ROOT "/bin/myGEMM.cl.ptx"
 
 // Define OpenCL compiler options, such as "-cl-nv-maxrregcount=127"
 #define COMPILER_OPTIONS ""
@@ -118,8 +122,10 @@ void myclblas(float* A, float* B, float* C,
     err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(unsigned char *), &bin, NULL);
     checkError(err,__LINE__);
     FILE* file = fopen(CL_PTX_FILE, "wb");
-    fwrite(bin, sizeof(char), binSize, file);
-    fclose(file);
+    if (file) {
+        fwrite(bin, sizeof(char), binSize, file);
+        fclose(file);
+    }
     free(bin);
 
     // Prepare OpenCL memory objects
@@ -268,7 +274,7 @@ void myclblas(float* A, float* B, float* C,
 
     // End the timed loop
     timers[timerID].t += (timer() - startTime) / (double)NUM_RUNS;
-    timers[timerID].kf += ((long)K * (long)M * (long)N * 2) / 1000;
+    timers[timerID].kf += ((long long)K * (long long)M * (long long)N * 2) / 1000;
 
     // Copy the output matrix C back to the CPU memory
     err = clEnqueueReadBuffer(queue, bufC, CL_TRUE, 0, M*N*sizeof(*C), C, 0, NULL, NULL);

@@ -19,7 +19,6 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#include <sys/time.h>
 
 // =================================================================================================
 
@@ -75,6 +74,8 @@ void mycublas(float* A, float* B, float* C,
 void myclblas(float* A, float* B, float* C,
               int K, int M, int N,
               int timerID);
+void libcpu(float* A, float* B, float* C,
+            int K, int M, int N);
 
 // Forward declarations of the timer functions
 double timer(void);

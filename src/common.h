@@ -74,6 +74,9 @@ void mycublas(float* A, float* B, float* C,
 void myclblas(float* A, float* B, float* C,
               int K, int M, int N,
               int timerID);
+void mysycl(float* A, float* B, float* C,
+            int K, int M, int N,
+            int timerID);
 void libcpu(float* A, float* B, float* C,
             int K, int M, int N);
 

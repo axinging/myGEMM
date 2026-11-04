@@ -36,18 +36,22 @@ int main(int argc, char* argv[]) {
 
     // Print information about the different configurations
     printf("## --- Configurations ---\n");
-    for (int c=0; c<=3; c++) {
+    for (int c=0; c<=4; c++) {
         #ifndef ENABLE_CUDA
             if (c == 0 || c == 2) { continue; }
         #endif
         #ifndef ENABLE_CLBLAS
             if (c == 1) { continue; }
         #endif
+        #ifndef ENABLE_SYCL
+            if (c == 4) { continue; }
+        #endif
         switch(c) {
             case 0: printf("##    cuBLAS on '%s', peak: %.1lf GFLOPS\n", GPU_NAME, peak); break;
             case 1: printf("##    clBlas on '%s', peak: %.1lf GFLOPS\n", GPU_NAME, peak); break;
             case 2: printf("## myGEMM.cu on '%s', peak: %.1lf GFLOPS\n", GPU_NAME, peak); break;
             case 3: printf("## myGEMM.cl on '%s', peak: %.1lf GFLOPS\n", GPU_NAME, peak); break;
+            case 4: printf("## myGEMM.sycl on '%s', peak: %.1lf GFLOPS\n", GPU_NAME, peak); break;
         }
     }
 
@@ -72,6 +76,8 @@ int main(int argc, char* argv[]) {
         float* B = (float*)malloc(k*n*sizeof(float*));
         float* C = (float*)malloc(m*n*sizeof(float*));
         float* goldC = (float*)malloc(MAXSIZE*MAXSIZE*sizeof(float*));
+        float* clC = (float*)malloc(m*n*sizeof(float*)); // OpenCL result, to compare SYCL against
+        bool haveClC = false;
         for (int i=0; i<m*k; i++) {
             A[i] = (float)rand() / (float)RAND_MAX;
         }
@@ -89,7 +95,7 @@ int main(int argc, char* argv[]) {
         #endif
 
         // Loop over the configurations
-        for (int c=0; c<=3; c++) {
+        for (int c=0; c<=4; c++) {
 
             // Skip configurations if CUDA is disabled
             #ifndef ENABLE_CUDA
@@ -97,6 +103,9 @@ int main(int argc, char* argv[]) {
             #endif
             #ifndef ENABLE_CLBLAS
                 if (c == 1) { continue; }
+            #endif
+            #ifndef ENABLE_SYCL
+                if (c == 4) { continue; }
             #endif
 
             // Set the output matrix to zero (to erase the results of the previous run)
@@ -111,6 +120,7 @@ int main(int argc, char* argv[]) {
                 case 1: sprintf(name, "clBlas"); break;
                 case 2: sprintf(name, "myGEMM.cu"); break;
                 case 3: sprintf(name, "myGEMM.cl"); break;
+                case 4: sprintf(name, "myGEMM.sycl"); break;
             }
 
             // Perform the matrix-multiplication
@@ -125,6 +135,9 @@ int main(int argc, char* argv[]) {
                     case 2: mycublas(A, B, C, k, m, n, c); break;
                 #endif
                 case 3: myclblas(A, B, C, k, m, n, c); break;
+                #ifdef ENABLE_SYCL
+                    case 4: mysycl(A, B, C, k, m, n, c); break;
+                #endif
             }
 
             // Compare the result to the 'golden' reference output in terms of the L2-norm
@@ -139,8 +152,23 @@ int main(int argc, char* argv[]) {
             double seconds = wtime(timers[c]);
             double performance = gflops(timers[c]);
             double fraction = 100.0 * performance / peak;
-            printf("## [%9s] %6.3lf s --> %6.1lf GFLOPS (%2.0lf%%), L2 norm: %.2e\n",
+            printf("## [%11s] %6.3lf s --> %6.1lf GFLOPS (%2.0lf%%), L2 norm: %.2e",
                    name, seconds, performance, fraction, L2norm);
+
+            // Backend-vs-backend check: compare the SYCL result directly with the OpenCL result
+            if (c == 3) {
+                memcpy(clC, C, m*n*sizeof(float));
+                haveClC = true;
+            }
+            if (c == 4 && haveClC) {
+                double diff = 0.0;
+                for (int i=0; i<m*n; i++) {
+                    double val = C[i] - clC[i];
+                    diff += val*val;
+                }
+                printf(", vs .cl: %.2e", sqrt(diff));
+            }
+            printf("\n");
         }
 
         // Free up the matrices
@@ -148,6 +176,7 @@ int main(int argc, char* argv[]) {
         free(B);
         free(C);
         free(goldC);
+        free(clC);
     }
 
     // End of the program

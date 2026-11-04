@@ -11,21 +11,41 @@ set(OPENCL_SDK_DIR "C:/tools/OpenCL-SDK-v2026.05.29-Win-x64" CACHE PATH "OpenCL 
 option(ENABLE_CLBLAS "Build the clBLAS comparison" OFF)
 set(CLBLAS_DIR "" CACHE PATH "clBLAS root (only if ENABLE_CLBLAS=ON)")
 
-set(SOURCES src/main.cpp src/clGEMM.cpp src/libcpu.cpp)
+# Optional: SYCL backend (sycl/mysycl.cpp). Needs a SYCL compiler, e.g. Intel oneAPI DPC++:
+#   cmake -DENABLE_SYCL=ON -DCMAKE_CXX_COMPILER=icx ...      (use -G Ninja, run from a oneAPI shell)
+option(ENABLE_SYCL "Build the SYCL backend and compare it with OpenCL" OFF)
+
+# src/    : shared driver (main, settings, CPU reference)
+# opencl/ : OpenCL backend (host code + kernels.cl)
+# sycl/   : SYCL backend
+set(SOURCES src/main.cpp src/libcpu.cpp opencl/clGEMM.cpp)
 if(ENABLE_CLBLAS)
-  list(APPEND SOURCES src/libclblas.cpp)
+  list(APPEND SOURCES opencl/libclblas.cpp)
+endif()
+if(ENABLE_SYCL)
+  list(APPEND SOURCES sycl/mysycl.cpp)
 endif()
 
 add_executable(myGEMM ${SOURCES})
 
-target_include_directories(myGEMM PRIVATE "${OPENCL_SDK_DIR}/include")
+target_include_directories(myGEMM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${OPENCL_SDK_DIR}/include")
 target_link_libraries(myGEMM PRIVATE "${OPENCL_SDK_DIR}/lib/OpenCL.lib")
 
+# keeps clCreateCommandQueue non-deprecated (only for the OpenCL sources, not for SYCL)
+set_source_files_properties(opencl/clGEMM.cpp opencl/libclblas.cpp
+                            PROPERTIES COMPILE_DEFINITIONS CL_TARGET_OPENCL_VERSION=120)
+
 target_compile_definitions(myGEMM PRIVATE
-  CL_TARGET_OPENCL_VERSION=120          # keeps clCreateCommandQueue non-deprecated
   _CRT_SECURE_NO_WARNINGS
   # Kernel/PTX files are located via this path, so the working directory does not matter
   MYGEMM_ROOT="${CMAKE_CURRENT_SOURCE_DIR}")
+
+if(ENABLE_SYCL)
+  set_property(TARGET myGEMM PROPERTY CXX_STANDARD 17)
+  target_compile_definitions(myGEMM PRIVATE ENABLE_SYCL)
+  target_compile_options(myGEMM PRIVATE -fsycl)
+  target_link_options(myGEMM PRIVATE -fsycl)
+endif()
 
 if(ENABLE_CLBLAS)
   target_compile_definitions(myGEMM PRIVATE ENABLE_CLBLAS)

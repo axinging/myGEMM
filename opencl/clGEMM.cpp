@@ -33,7 +33,7 @@ void checkError(cl_int error, int line);
     #define MYGEMM_ROOT "."
 #endif
 #define CL_INCLUDE_FILE MYGEMM_ROOT "/src/settings.h"
-#define CL_KERNEL_FILE MYGEMM_ROOT "/src/kernels.cl"
+#define CL_KERNEL_FILE MYGEMM_ROOT "/opencl/kernels.cl"
 
 // Determine the location where to output the PTX code
 #define CL_PTX_FILE MYGEMM_ROOT "/bin/myGEMM.cl.ptx"
@@ -245,8 +245,10 @@ void myclblas(float* A, float* B, float* C,
     #endif
 
     // Start the timed loop
+    // (run r=-1 is an untimed warm-up, so that lazy initialisation is not measured)
     double startTime = timer();
-    for (int r=0; r<NUM_RUNS; r++) {
+    for (int r=-1; r<NUM_RUNS; r++) {
+        if (r == 0) { startTime = timer(); }
 
         // Run the transpose kernel first
         #if KERNEL == 5 || KERNEL == 6 || KERNEL == 7 || KERNEL == 8 || KERNEL == 9 || KERNEL == 10

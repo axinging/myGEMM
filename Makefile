@@ -34,6 +34,7 @@ NVFLAGS += -O3 -arch=sm_35 -Xcompiler -Wall
 
 # Folders
 SRCDIR = src
+CLDIR = opencl
 BINDIR = bin
 OBJDIR = obj
 SCRDIR = scripts
@@ -44,7 +45,7 @@ ifeq ($(ENABLE_CUDA),1)
 endif
 
 # Load OpenCL and the clBlas library
-INCLUDES += -I$(OPENCLDIR)/include -I$(CLBLASDIR)/include
+INCLUDES += -I$(SRCDIR) -I$(CLDIR) -I$(OPENCLDIR)/include -I$(CLBLASDIR)/include
 LDFLAGS += -L$(OPENCLDIR)/lib64 -L$(CLBLASDIR)/lib64
 LDFLAGS += -lOpenCL -lclBLAS
 
@@ -77,12 +78,14 @@ build: $(OBJS)
 	$(CXX) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS) $(LDFLAGS) -o $(BIN)
 
 # C++ sources
-$(OBJDIR)/%.cpp.o: $(SRCDIR)/%.cpp $(SRCDIR)/*.h
+vpath %.cpp $(SRCDIR) $(CLDIR)
+vpath %.cu $(SRCDIR)
+$(OBJDIR)/%.cpp.o: %.cpp $(SRCDIR)/*.h
 	@mkdir -p $(OBJDIR)
 	$(CXX) -c $(CXXFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
 
 # CUDA sources
-$(OBJDIR)/%.cu.o: $(SRCDIR)/%.cu $(SRCDIR)/*.h $(SRCDIR)/*.cl
+$(OBJDIR)/%.cu.o: %.cu $(SRCDIR)/*.h $(CLDIR)/*.cl
 	@mkdir -p $(OBJDIR)
 	$(NVCC) -c $(NVFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
 

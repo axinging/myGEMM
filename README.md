@@ -59,3 +59,11 @@ Be aware that the minimal working example does not:
 *	Load a kernel-file from disk, instead it is embedded as a string
 
 ###################################################
+
+## Source layout / backends
+
+- `src/` – shared driver (`main.cpp`), settings, CPU reference, CUDA backend
+- `opencl/` – OpenCL backend (`clGEMM.cpp`, `kernels.cl`, optional clBLAS)
+- `sycl/` – SYCL backend (`mysycl.cpp`, port of kernel 8; build with `-DENABLE_SYCL=ON` and a DPC++ compiler, e.g. `icx`, from a oneAPI shell with `-G Ninja`)
+
+When both backends are enabled, each result is checked against the CPU reference and the SYCL result is also compared directly with the OpenCL one (`vs .cl`). Use `ONEAPI_DEVICE_SELECTOR` (e.g. `opencl:gpu`, `level_zero:gpu`) to choose the SYCL runtime backend.
